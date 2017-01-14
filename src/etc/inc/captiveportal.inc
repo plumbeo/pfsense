@@ -728,7 +728,7 @@ function captiveportal_delete_rules() {
 /*
  * Remove clients that have been around for longer than the specified amount of time
  * db file structure:
- * timestamp,ipfw_rule_no,clientip,clientmac,username,sessionid,password,session_timeout,idle_timeout,session_terminate_time,interim_interval,traffic_quota,radiusctx
+ * timestamp,ipfw_rule_no,clientip,clientmac,username,sessionid,password,session_timeout,idle_timeout,session_terminate_time,interim_interval,traffic_quota,authctx,acctctx
  * (password is in Base64 and only saved when reauthentication is enabled)
  */
 function captiveportal_prune_old() {
@@ -786,7 +786,12 @@ function captiveportal_prune_old() {
 		if (empty($cpentry[12])) {
 			$cpentry[12] = 'first';
 		}
-		$radiusservers = $radiussrvs[$cpentry[12]];
+		$radiusauthservers = $radiussrvs[$cpentry[12]];
+
+		if (empty($cpentry[13])) {
+			$cpentry[13] = 'acct';
+		}
+		$radiusacctservers = $radiussrvs[$cpentry[13]];
 
 		/* hard timeout or session_timeout from radius if enabled */
 		if (isset($cpcfg['radiussession_timeout'])) {
@@ -847,14 +852,14 @@ function captiveportal_prune_old() {
 		}
 
 		if ($timedout) {
-			captiveportal_disconnect($cpentry, $radiusservers, $term_cause, $stop_time);
+			captiveportal_disconnect($cpentry, $radiusacctservers, $term_cause, $stop_time);
 			captiveportal_logportalauth($cpentry[4], $cpentry[3], $cpentry[2], "TIMEOUT");
 			$unsetindexes[] = $cpentry[5];
 		}
 
 		/* do periodic RADIUS reauthentication? */
-		if (!$timedout && !empty($radiusservers)) {
-			if (isset($cpcfg['radacct_enable'])) {
+		if (!$timedout) {
+			if (isset($cpcfg['radacct_enable']) && !empty($radiusacctservers)) {
 				if (substr($cpcfg['reauthenticateacct'], 0, 9) == "stopstart") {
 					/* stop and restart accounting */
 					if ($cpcfg['reauthenticateacct'] == "stopstartfreeradius") {
@@ -868,7 +873,7 @@ function captiveportal_prune_old() {
 						$cpentry[4], // username
 						$cpentry[5], // sessionid
 						$rastart_time, // start time
-						$radiusservers,
+						$radiusacctservers,
 						$cpentry[2], // clientip
 						$cpentry[3], // clientmac
 						10, // NAS Request
@@ -886,7 +891,7 @@ function captiveportal_prune_old() {
 					RADIUS_ACCOUNTING_START($cpentry[1], // ruleno
 						$cpentry[4], // username
 						$cpentry[5], // sessionid
-						$radiusservers,
+						$radiusacctservers,
 						$cpentry[2], // clientip
 						$cpentry[3]); // clientmac
 				} else if ($cpcfg['reauthenticateacct'] == "interimupdate") {
@@ -905,7 +910,7 @@ function captiveportal_prune_old() {
 							$cpentry[4], // username
 							$cpentry[5], // sessionid
 							$cpentry[0], // start time
-							$radiusservers,
+							$radiusacctservers,
 							$cpentry[2], // clientip
 							$cpentry[3], // clientmac
 							10, // NAS Request
@@ -915,15 +920,15 @@ function captiveportal_prune_old() {
 			}
 
 			/* check this user against RADIUS again */
-			if (isset($cpcfg['reauthenticate'])) {
+			if (isset($cpcfg['reauthenticate']) && !empty($radiusauthservers)) {
 				$auth_list = RADIUS_AUTHENTICATION($cpentry[4], // username
 					base64_decode($cpentry[6]), // password
-					$radiusservers,
+					$radiusauthservers,
 					$cpentry[2], // clientip
 					$cpentry[3], // clientmac
 					$cpentry[1]); // ruleno
 				if ($auth_list['auth_val'] == 3) {
-					captiveportal_disconnect($cpentry, $radiusservers, 17);
+					captiveportal_disconnect($cpentry, $radiusacctservers, 17);
 					captiveportal_logportalauth($cpentry[4], $cpentry[3], $cpentry[2], "RADIUS_DISCONNECT", $auth_list['reply_message']);
 					$unsetindexes[] = $cpentry[5];
 				} else if ($auth_list['auth_val'] == 2) {
@@ -1081,10 +1086,10 @@ function captiveportal_disconnect_client($sessionid, $term_cause = 1, $logoutRea
 		captiveportal_write_db("DELETE FROM captiveportal WHERE sessionid = '{$sessionid}'");
 
 		foreach ($result as $cpentry) {
-			if (empty($cpentry[12])) {
-				$cpentry[12] = 'first';
+			if (empty($cpentry[13])) {
+				$cpentry[13] = 'acct';
 			}
-			captiveportal_disconnect($cpentry, $radiusservers[$cpentry[12]], $term_cause);
+			captiveportal_disconnect($cpentry, $radiusservers[$cpentry[13]], $term_cause);
 			captiveportal_logportalauth($cpentry[4], $cpentry[3], $cpentry[2], "DISCONNECT");
 		}
 		unset($result);
@@ -1138,15 +1143,15 @@ function captiveportal_radius_stop_all($term_cause = 6, $logoutReason = "DISCONN
 	foreach ($cpdb as $cpentry) {
 		if ($radacct) {
 			if (!empty($radiusservers)) {
-				if (empty($cpentry[12])) {
-					$cpentry[12] = 'first';
+				if (empty($cpentry[13])) {
+					$cpentry[13] = 'acct';
 				}
-				if (!empty($radiusservers[$cpentry[12]])) {
+				if (!empty($radiusservers[$cpentry[13]])) {
 					RADIUS_ACCOUNTING_STOP($cpentry[1], // ruleno
 						$cpentry[4], // username
 						$cpentry[5], // sessionid
 						$cpentry[0], // start time
-						$radiusservers[$cpentry[12]],
+						$radiusservers[$cpentry[13]],
 						$cpentry[2], // clientip
 						$cpentry[3], // clientmac
 						$term_cause);
@@ -1425,6 +1430,8 @@ function captiveportal_init_radius_servers() {
 		$radiusip2 = ($config['captiveportal'][$cpzone]['radiusip2']) ? $config['captiveportal'][$cpzone]['radiusip2'] : null;
 		$radiusip3 = ($config['captiveportal'][$cpzone]['radiusip3']) ? $config['captiveportal'][$cpzone]['radiusip3'] : null;
 		$radiusip4 = ($config['captiveportal'][$cpzone]['radiusip4']) ? $config['captiveportal'][$cpzone]['radiusip4'] : null;
+		$radacctip = ($config['captiveportal'][$cpzone]['radacctip']) ? $config['captiveportal'][$cpzone]['radacctip'] : null;
+		$radacctip2 = ($config['captiveportal'][$cpzone]['radacctip2']) ? $config['captiveportal'][$cpzone]['radacctip2'] : null;
 
 		if ($config['captiveportal'][$cpzone]['radiusport']) {
 			$radiusport = $config['captiveportal'][$cpzone]['radiusport'];
@@ -1435,6 +1442,11 @@ function captiveportal_init_radius_servers() {
 			$radiusacctport = $config['captiveportal'][$cpzone]['radiusacctport'];
 		} else {
 			$radiusacctport = 1813;
+		}
+		if ($config['captiveportal'][$cpzone]['radiusacctport2']) {
+			$radiusacctport2 = $config['captiveportal'][$cpzone]['radiusacctport2'];
+		} else {
+			$radiusacctport2 = 1813;
 		}
 		if ($config['captiveportal'][$cpzone]['radiusport2']) {
 			$radiusport2 = $config['captiveportal'][$cpzone]['radiusport2'];
@@ -1456,6 +1468,8 @@ function captiveportal_init_radius_servers() {
 		$radiuskey2 = $config['captiveportal'][$cpzone]['radiuskey2'];
 		$radiuskey3 = $config['captiveportal'][$cpzone]['radiuskey3'];
 		$radiuskey4 = $config['captiveportal'][$cpzone]['radiuskey4'];
+		$radacctkey = $config['captiveportal'][$cpzone]['radacctkey'];
+		$radacctkey2 = $config['captiveportal'][$cpzone]['radacctkey2'];
 
 		$cprdsrvlck = lock("captiveportalradius{$cpzone}", LOCK_EX);
 		$fd = @fopen("{$g['vardb_path']}/captiveportal_radius_{$cpzone}.db", "w");
@@ -1475,6 +1489,12 @@ function captiveportal_init_radius_servers() {
 		}
 		if (isset($radiusip4)) {
 			fwrite($fd, "\n" . $radiusip4 . "," . $radiusport4 . "," . $radiusacctport . "," . $radiuskey4 . ",second");
+		}
+		if (isset($radacctip)) {
+			fwrite($fd, "\n" . $radacctip . ",," . $radiusacctport . "," . $radacctkey . ",acct");
+		}
+		if (isset($radacctip2)) {
+			fwrite($fd, "\n" . $radacctip2 . ",," . $radiusacctport2 . "," . $radacctkey2 . ",acct");
 		}
 
 		fclose($fd);
@@ -1544,7 +1564,7 @@ function captiveportal_syslog($message) {
 	closelog();
 }
 
-function radius($username, $password, $clientip, $clientmac, $type, $radiusctx = null) {
+function radius($username, $password, $clientip, $clientmac, $type, $authctx = null, $acctctx = null) {
 	global $g, $config, $cpzoneid;
 
 	$pipeno = captiveportal_get_next_dn_ruleno();
@@ -1559,13 +1579,16 @@ function radius($username, $password, $clientip, $clientmac, $type, $radiusctx =
 
 	$radiusservers = captiveportal_get_radius_servers();
 
-	if (is_null($radiusctx)) {
-		$radiusctx = 'first';
+	if (is_null($authctx)) {
+		$authctx = 'first';
+	}
+	if (is_null($acctctx)) {
+		$acctctx = 'acct';
 	}
 
 	$auth_list = RADIUS_AUTHENTICATION($username,
 		$password,
-		$radiusservers[$radiusctx],
+		$radiusservers[$authctx],
 		$clientip,
 		$clientmac,
 		$pipeno);
@@ -1578,7 +1601,8 @@ function radius($username, $password, $clientip, $clientmac, $type, $radiusctx =
 			$password,
 			$auth_list,
 			$pipeno,
-			$radiusctx);
+			$authctx,
+			$acctctx);
 	} else {
 		captiveportal_free_dn_ruleno($pipeno);
 	}
@@ -1594,7 +1618,7 @@ function captiveportal_opendb() {
 				"allow_time INTEGER, pipeno INTEGER, ip TEXT, mac TEXT, username TEXT, " .
 				"sessionid TEXT, bpassword TEXT, session_timeout INTEGER, idle_timeout INTEGER, " .
 				"session_terminate_time INTEGER, interim_interval INTEGER, traffic_quota INTEGER, " .
-				"radiusctx TEXT); " .
+				"authctx TEXT, acctctx TEST); " .
 			"CREATE UNIQUE INDEX IF NOT EXISTS idx_active ON captiveportal (sessionid, username); " .
 			"CREATE INDEX IF NOT EXISTS user ON captiveportal (username); " .
 			"CREATE INDEX IF NOT EXISTS ip ON captiveportal (ip); " .
@@ -2070,14 +2094,14 @@ function portal_reply_page($redirurl, $type = null, $message = null, $clientmac 
 	echo $htmltext;
 }
 
-function portal_mac_radius($clientmac, $clientip) {
+function portal_mac_radius($clientmac, $clientip, $authctx, $acctctx) {
 	global $config, $cpzone;
 
 	$radmac_secret = $config['captiveportal'][$cpzone]['radmac_secret'];
 
 	/* authentication against the radius server */
 	$username = mac_format($clientmac);
-	$auth_list = radius($username, $radmac_secret, $clientip, $clientmac, "MACHINE LOGIN");
+	$auth_list = radius($username, $radmac_secret, $clientip, $clientmac, "MACHINE LOGIN", $authctx, $acctctx);
 	if ($auth_list['auth_val'] == 2) {
 		return TRUE;
 	}
@@ -2110,7 +2134,7 @@ function captiveportal_reapply_attributes($cpentry, $attributes) {
 	unset($bw_up_pipeno, $bw_down_pipeno, $bw_up, $bw_down);
 }
 
-function portal_allow($clientip, $clientmac, $username, $password = null, $attributes = null, $pipeno = null, $radiusctx = null) {
+function portal_allow($clientip, $clientmac, $username, $password = null, $attributes = null, $pipeno = null, $authctx = null, $acctctx = null) {
 	global $redirurl, $g, $config, $type, $passthrumac, $_POST, $cpzone, $cpzoneid;
 
 	// Ensure we create an array if we are missing attributes
@@ -2126,7 +2150,8 @@ function portal_allow($clientip, $clientmac, $username, $password = null, $attri
 	if ($attributes['voucher']) {
 		$remaining_time = $attributes['session_timeout'];
 	// Set RADIUS-Attribute to Voucher to prevent ReAuth-Reqeuest for Vouchers Bug: #2155
-		$radiusctx="voucher";
+		$authctx="voucher";
+		$acctctx="voucher";
 	}
 
 	$writecfg = false;
@@ -2182,13 +2207,19 @@ function portal_allow($clientip, $clientmac, $username, $password = null, $attri
 	$allow_time = time();
 	$radiusservers = captiveportal_get_radius_servers();
 	$unsetindexes = array();
-	if (is_null($radiusctx)) {
-		$radiusctx = 'first';
+	if (is_null($authctx)) {
+		$authctx = 'first';
+	}
+	if (is_null($acctctx)) {
+		$acctctx = 'acct';
 	}
 
 	foreach ($cpdb as $cpentry) {
 		if (empty($cpentry[12])) {
 			$cpentry[12] = 'first';
+		}
+		if (empty($cpentry[13])) {
+			$cpentry[13] = 'acct';
 		}
 		/* on the same ip */
 		if ($cpentry[2] == $clientip) {
@@ -2208,7 +2239,7 @@ function portal_allow($clientip, $clientmac, $username, $password = null, $attri
 			}
 
 			/* This user was already logged in so we disconnect the old one */
-			captiveportal_disconnect($cpentry, $radiusservers[$cpentry[12]], 13);
+			captiveportal_disconnect($cpentry, $radiusservers[$cpentry[13]], 13);
 			captiveportal_logportalauth($cpentry[4], $cpentry[3], $cpentry[2], "CONCURRENT LOGIN - TERMINATING OLD SESSION");
 			$unsetindexes[] = $cpentry[5];
 			break;
@@ -2216,7 +2247,7 @@ function portal_allow($clientip, $clientmac, $username, $password = null, $attri
 			/* on the same username */
 			if (strcasecmp($cpentry[4], $username) == 0) {
 				/* This user was already logged in so we disconnect the old one */
-				captiveportal_disconnect($cpentry, $radiusservers[$cpentry[12]], 13);
+				captiveportal_disconnect($cpentry, $radiusservers[$cpentry[13]], 13);
 				captiveportal_logportalauth($cpentry[4], $cpentry[3], $cpentry[2], "CONCURRENT LOGIN - TERMINATING OLD SESSION");
 				$unsetindexes[] = $cpentry[5];
 				break;
@@ -2318,17 +2349,17 @@ function portal_allow($clientip, $clientmac, $username, $password = null, $attri
 
 			/* encode password in Base64 just in case it contains commas */
 			$bpassword = base64_encode($password);
-			$insertquery = "INSERT INTO captiveportal (allow_time, pipeno, ip, mac, username, sessionid, bpassword, session_timeout, idle_timeout, session_terminate_time, interim_interval, traffic_quota, radiusctx) ";
+			$insertquery = "INSERT INTO captiveportal (allow_time, pipeno, ip, mac, username, sessionid, bpassword, session_timeout, idle_timeout, session_terminate_time, interim_interval, traffic_quota, authctx, acctctx) ";
 			$insertquery .= "VALUES ({$allow_time}, {$pipeno}, '{$clientip}', '{$clientmac}', '{$safe_username}', '{$sessionid}', '{$bpassword}', ";
-			$insertquery .= "{$session_timeout}, {$idle_timeout}, {$session_terminate_time}, {$interim_interval}, {$traffic_quota}, '{$radiusctx}')";
+			$insertquery .= "{$session_timeout}, {$idle_timeout}, {$session_terminate_time}, {$interim_interval}, {$traffic_quota}, '{$authctx}', '{$acctctx}')";
 
 			/* store information to database */
 			captiveportal_write_db($insertquery);
 			unlock($cpdblck);
 			unset($insertquery, $bpassword);
 
-			if (isset($config['captiveportal'][$cpzone]['radacct_enable']) && !empty($radiusservers[$radiusctx])) {
-				$acct_val = RADIUS_ACCOUNTING_START($pipeno, $username, $sessionid, $radiusservers[$radiusctx], $clientip, $clientmac);
+			if (isset($config['captiveportal'][$cpzone]['radacct_enable']) && !empty($radiusservers[$acctctx])) {
+				$acct_val = RADIUS_ACCOUNTING_START($pipeno, $username, $sessionid, $radiusservers[$acctctx], $clientip, $clientmac);
 				if ($acct_val == 1) {
 					captiveportal_logportalauth($username, $clientmac, $clientip, $type, "RADIUS ACCOUNTING FAILED");
 				}
@@ -2504,6 +2535,11 @@ function captiveportal_send_server_accounting($off = false) {
 	if (!isset($config['captiveportal'][$cpzone]['radacct_enable'])) {
 		return;
 	}
+	if (isset($config['captiveportal'][$cpzone]['radacct_use_authsrv'])) {
+		$acctctx = 'first';
+	} else {
+		$acctctx = 'acct';
+	}
 	if ($off) {
 		$racct = new Auth_RADIUS_Acct_Off;
 	} else {
@@ -2513,7 +2549,7 @@ function captiveportal_send_server_accounting($off = false) {
 	if (empty($radiusservers)) {
 		return;
 	}
-	foreach ($radiusservers['first'] as $radsrv) {
+	foreach ($radiusservers[$acctctx] as $radsrv) {
 		// Add a new server to our instance
 		$racct->addServer($radsrv['ipaddr'], $radsrv['acctport'], $radsrv['key']);
 	}
