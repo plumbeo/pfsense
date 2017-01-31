@@ -690,7 +690,10 @@ function captiveportal_prune_old() {
 		}
 		$radiusservers = $radiussrvs[$cpentry[11]];
 
-		/* hard timeout? */
+		/* hard timeout or session_timeout from radius if enabled */
+		if (isset($cpcfg['radiussession_timeout'])) {
+			$timeout = (is_numeric($cpentry[7])) ? $cpentry[7] : $timeout;
+		}
 		if ($timeout) {
 			if (($pruning_time - $cpentry[0]) >= $timeout) {
 				$timedout = true;
@@ -730,14 +733,6 @@ function captiveportal_prune_old() {
 				$timedout = true;
 				$term_cause = 5; // Session-Timeout
 				$voucher_needs_sync = true;
-			}
-		}
-
-		/* if radius session_timeout is enabled and the session_timeout is not null, then check if the user should be logged out */
-		if (!$timedout && isset($cpcfg['radiussession_timeout']) && !empty($cpentry[7])) {
-			if ($pruning_time >= ($cpentry[0] + $cpentry[7])) {
-				$timedout = true;
-				$term_cause = 5; // Session-Timeout
 			}
 		}
 
