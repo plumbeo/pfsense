@@ -2038,6 +2038,14 @@ function portal_mac_radius($clientmac, $clientip) {
 
 	/* authentication against the radius server */
 	$username = mac_format($clientmac);
+
+	if (isset($config['captiveportal'][$cpzone]['radmac_autoregister'])) {
+		$register = radmac_register_user($username, $radmac_secret);
+		if (!$register) {
+			return FALSE;
+		}
+	}
+
 	$auth_list = radius($username, $radmac_secret, $clientip, $clientmac, "MACHINE LOGIN");
 	if ($auth_list['auth_val'] == 2) {
 		return TRUE;
@@ -2527,5 +2535,63 @@ function captiveportal_isip_logged($clientip) {
 	foreach ($cpdb as $cpentry) {
 		return $cpentry;
 	}
+}
+
+function radmac_register_user($username, $password) {
+	global $g, $config, $cpzone;
+
+	$dbservername = $config['captiveportal'][$cpzone]['radmac_dbserver'];
+	$dbname = $config['captiveportal'][$cpzone]['radmac_dbname'];
+	$dbusername = $config['captiveportal'][$cpzone]['radmac_dbusername'];
+	$dbpassword = $config['captiveportal'][$cpzone]['radmac_dbpassword'];
+	if ($config['captiveportal'][$cpzone]['radmac_dbport']) {
+		$dbport = $config['captiveportal'][$cpzone]['radmac_dbport'];
+	} else {
+		$dbport = 3306;
+	}
+
+	$groupname = $config['captiveportal'][$cpzone]['radmac_group'];
+
+	$sqlcheck = "SELECT * FROM radcheck WHERE username = '{$username}';";
+
+	$sqlinsert = "INSERT INTO radcheck(username, attribute, op, value) VALUES ('{$username}', 'Cleartext-Password', ':=', '{$password}');";
+	if ($groupname) {
+		$sqlinsert .= "INSERT INTO radusergroup (username, groupname) VALUES ('{$username}', '{$groupname}');";
+	}
+
+	$reglock = lock("captiveportal{$cpzone}reglock", LOCK_EX);
+
+	try {
+		$conn = new mysqli($dbservername, $dbusername, $dbpassword, $dbname, $dbport);
+	} catch (Exception $e) {
+		captiveportal_syslog("Could not open db {$dbservername}/{$dbname}. Error message: " . $e->getMessage());
+		unlock($reglock);
+		return FALSE;
+	}
+
+	$result = $conn->query($sqlcheck);
+
+	if ($result === FALSE) {
+		captiveportal_syslog("Could not check the existence of user {$username}. Error message: " . $conn->error);
+	} else {
+		if ($result->num_rows > 0) {
+			/*captiveportal_syslog("Username {$username} already registered.");*/
+			$conn->close();
+			unlock($reglock);
+			return TRUE;
+		} else {
+			if ($conn->multi_query($sqlinsert) === TRUE) {
+				$conn->close();
+				unlock($reglock);
+				return TRUE;
+			} else {
+				captiveportal_syslog("Could not register user {$username}. Error message: " . $conn->error);
+			}
+		}
+	}
+
+	$conn->close();
+	unlock($reglock);
+	return FALSE;
 }
 ?>

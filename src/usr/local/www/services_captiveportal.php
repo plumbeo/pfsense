@@ -187,6 +187,13 @@ if ($a_cp[$cpzone]) {
 	$pconfig['radacct_enable'] = isset($a_cp[$cpzone]['radacct_enable']);
 	$pconfig['radmac_enable'] = isset($a_cp[$cpzone]['radmac_enable']);
 	$pconfig['radmac_secret'] = $a_cp[$cpzone]['radmac_secret'];
+	$pconfig['radmac_autoregister'] = isset($a_cp[$cpzone]['radmac_autoregister']);
+	$pconfig['radmac_dbserver'] = $a_cp[$cpzone]['radmac_dbserver'];
+	$pconfig['radmac_dbport'] = $a_cp[$cpzone]['radmac_dbport'];
+	$pconfig['radmac_dbname'] = $a_cp[$cpzone]['radmac_dbname'];
+	$pconfig['radmac_dbusername'] = $a_cp[$cpzone]['radmac_dbusername'];
+	$pconfig['radmac_dbpassword'] = $a_cp[$cpzone]['radmac_dbpassword'];
+	$pconfig['radmac_group'] = $a_cp[$cpzone]['radmac_group'];
 	$pconfig['reauthenticate'] = isset($a_cp[$cpzone]['reauthenticate']);
 	$pconfig['reauthenticateacct'] = $a_cp[$cpzone]['reauthenticateacct'];
 	$pconfig['httpslogin_enable'] = isset($a_cp[$cpzone]['httpslogin']);
@@ -253,6 +260,15 @@ if ($_POST) {
 			$reqdfieldsn[] = gettext("RADIUS Protocol");
 			$reqdfields[] = "radiusip";
 			$reqdfieldsn[] = gettext("Primary RADIUS server IP address");
+		}
+
+		if (isset($_POST['radmac_autoregister'])) {
+			$reqdfields[] = "radmac_dbserver";
+			$reqdfieldsn[] = gettext("Database server IP address");
+			$reqdfields[] = "radmac_dbname";
+			$reqdfieldsn[] = gettext("Database name");
+			$reqdfields[] = "radmac_dbusername";
+			$reqdfieldsn[] = gettext("Database username");
 		}
 
 		do_input_validation($_POST, $reqdfields, $reqdfieldsn, $input_errors);
@@ -367,6 +383,13 @@ if ($_POST) {
 		$input_errors[] = gettext("The NAS-Identifier must be 3-253 characters long and should only contain ASCII characters.");
 	}
 
+	if (($_POST['radmac_dbserver'] && !is_ipaddr($_POST['radmac_dbserver']))) {
+		$input_errors[] = sprintf(gettext("A valid IP address must be specified. [%s]"), $_POST['radmac_dbserver']);
+	}
+	if (($_POST['radmac_dbport'] && !is_port($_POST['radmac_dbport']))) {
+		$input_errors[] = sprintf(gettext("A valid port number must be specified. [%s]"), $_POST['radmac_dbport']);
+	}
+
 	if (!$input_errors) {
 		$newcp =& $a_cp[$cpzone];
 		//$newcp['zoneid'] = $a_cp[$cpzone]['zoneid'];
@@ -403,6 +426,14 @@ if ($_POST) {
 		$newcp['reauthenticate'] = $_POST['reauthenticate'] ? true : false;
 		$newcp['radmac_enable'] = $_POST['radmac_enable'] ? true : false;
 		$newcp['radmac_secret'] = $_POST['radmac_secret'] ? $_POST['radmac_secret'] : false;
+		$newcp['radmac_autoregister'] = $_POST['radmac_autoregister'] ? true : false;
+		$newcp['radmac_dbserver'] = $_POST['radmac_dbserver'];
+		$newcp['radmac_dbport'] = $_POST['radmac_dbport'];
+		$newcp['radmac_dbname'] = $_POST['radmac_dbname'];
+		$newcp['radmac_dbusername'] = $_POST['radmac_dbusername'];
+		$newcp['radmac_dbpassword'] = $_POST['radmac_dbpassword'];
+		$newcp['radmac_group'] = $_POST['radmac_group'];
+
 		$newcp['reauthenticateacct'] = $_POST['reauthenticateacct'];
 		if ($_POST['httpslogin_enable']) {
 			$newcp['httpslogin'] = true;
@@ -1004,6 +1035,59 @@ $section->addInput(new Form_Input(
 	'text',
 	$pconfig['radmac_secret']
 ));
+
+$section->addInput(new Form_Checkbox(
+	'radmac_autoregister',
+	'RADIUS MAC Users Autoregistration',
+	'Autoregister RADIUS MAC authentication users',
+	$pconfig['radmac_autoregister']
+))->setHelp('If this option is enabled, the captive portal will register the users MAC address in the database server used by RADIUS.');
+
+$group = new Form_Group('Autoregistration database');
+$group->addClass('Autoregistration');
+
+$group->add(new Form_IpAddress(
+        'radmac_dbserver',
+        null,
+        $pconfig['radmac_dbserver']
+))->setHelp('IP address.');
+
+$group->add(new Form_Input(
+        'radmac_dbport',
+        null,
+        'number',
+        $pconfig['radmac_dbport']
+))->setHelp('Port. Leave blank for default (3306)');
+
+$group->add(new Form_Input(
+        'radmac_dbname',
+        null,
+        'text',
+        $pconfig['radmac_dbname']
+))->setHelp('Database.');
+
+$group->add(new Form_Input(
+        'radmac_dbusername',
+        null,
+        'text',
+        $pconfig['radmac_dbusername']
+))->setHelp('Username.');
+
+$group->add(new Form_Input(
+        'radmac_dbpassword',
+        null,
+        'text',
+        $pconfig['radmac_dbpassword']
+))->setHelp('Password.');
+
+$section->add($group);
+
+$section->addInput(new Form_Input(
+	'radmac_group',
+	'MAC authentication users group',
+	'text',
+	$pconfig['radmac_group']
+))->AddClass('Autoregistration');
 
 $section->addInput(new Form_Select(
 	'radiussrcip_attribute',
