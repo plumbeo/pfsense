@@ -190,8 +190,13 @@ EOD;
 		portal_reply_page($redirurl, "error", "This MAC address has been blocked");
 	}
 
-} else if ($clientmac && $radmac_enable && portal_mac_radius($clientmac, $clientip, $radiusctx)) {
+/*} else if ($clientmac && $radmac_enable && portal_mac_radius($clientmac, $clientip, $radiusctx)) {*/
 	/* radius functions handle everything so we exit here since we're done */
+
+} else if ($_POST['accept'] && $clientmac && $radmac_enable) {
+	if (!portal_mac_radius($clientmac, $clientip, $radiusctx)) {
+		portal_reply_page($redirurl, "error", $errormsg);
+	}
 
 } else if (portal_consume_passthrough_credit($clientmac)) {
 	/* allow the client through if it had a pass-through credit for its MAC */
