@@ -2119,8 +2119,14 @@ function captiveportal_reapply_attributes($cpentry, $attributes) {
 		$dwfaultbw_up = $dwfaultbw_down = 0;
 	}
 	/* pipe throughputs must always be an integer, enforce that restriction again here. */
-	$bw_up = round(!empty($attributes['bw_up']) ? intval($attributes['bw_up'])/1000 : $dwfaultbw_up, 0);
-	$bw_down = round(!empty($attributes['bw_down']) ? intval($attributes['bw_down'])/1000 : $dwfaultbw_down, 0);
+	if (isset($config['captiveportal'][$cpzone]['radiusperuserbw'])) {
+		$bw_up = round(!empty($attributes['bw_up']) ? intval($attributes['bw_up'])/1000 : $dwfaultbw_up, 0);
+		$bw_down = round(!empty($attributes['bw_down']) ? intval($attributes['bw_down'])/1000 : $dwfaultbw_down, 0);
+	} else {
+		$bw_up = round($dwfaultbw_up,0);
+		$bw_down = round($dwfaultbw_down,0);
+	}
+
 	$bw_up_pipeno = $cpentry[1];
 	$bw_down_pipeno = $cpentry[1]+1;
 
@@ -2266,8 +2272,13 @@ function portal_allow($clientip, $clientmac, $username, $password = null, $attri
 			$dwfaultbw_up = $dwfaultbw_down = 0;
 		}
 		/* pipe throughputs must always be an integer, enforce that restriction again here. */
-		$bw_up = round(!empty($attributes['bw_up']) ? intval($attributes['bw_up'])/1000 : $dwfaultbw_up, 0);
-		$bw_down = round(!empty($attributes['bw_down']) ? intval($attributes['bw_down'])/1000 : $dwfaultbw_down, 0);
+		if (isset($config['captiveportal'][$cpzone]['radiusperuserbw'])) {
+			$bw_up = round(!empty($attributes['bw_up']) ? intval($attributes['bw_up'])/1000 : $dwfaultbw_up, 0);
+			$bw_down = round(!empty($attributes['bw_down']) ? intval($attributes['bw_down'])/1000 : $dwfaultbw_down, 0);
+		} else {
+			$bw_up = round($dwfaultbw_up,0);
+			$bw_down = round($dwfaultbw_down,0);
+		}
 
 		if ($passthrumac) {
 			$mac = array();
