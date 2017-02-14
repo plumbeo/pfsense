@@ -188,6 +188,7 @@ if ($a_cp[$cpzone]) {
 	$pconfig['radmac_enable'] = isset($a_cp[$cpzone]['radmac_enable']);
 	$pconfig['radmac_secret'] = $a_cp[$cpzone]['radmac_secret'];
 	$pconfig['radmac_autoregister'] = isset($a_cp[$cpzone]['radmac_autoregister']);
+	$pconfig['radmac_regdetails'] = isset($a_cp[$cpzone]['radmac_regdetails']);
 	$pconfig['radmac_dbserver'] = $a_cp[$cpzone]['radmac_dbserver'];
 	$pconfig['radmac_dbport'] = $a_cp[$cpzone]['radmac_dbport'];
 	$pconfig['radmac_dbname'] = $a_cp[$cpzone]['radmac_dbname'];
@@ -296,6 +297,10 @@ if ($_POST) {
 			if (!$_POST['httpsname'] || !is_domain($_POST['httpsname'])) {
 				$input_errors[] = gettext("The HTTPS server name must be specified for HTTPS login.");
 			}
+		}
+
+		if ($_POST['radmac_regdetails'] && !$_POST['radmac_autoregister']) {
+			$input_errors[] = gettext("You must enable RADIUS MAC users autoregistration to record extra details about the users.");
 		}
 	}
 
@@ -427,6 +432,7 @@ if ($_POST) {
 		$newcp['radmac_enable'] = $_POST['radmac_enable'] ? true : false;
 		$newcp['radmac_secret'] = $_POST['radmac_secret'] ? $_POST['radmac_secret'] : false;
 		$newcp['radmac_autoregister'] = $_POST['radmac_autoregister'] ? true : false;
+		$newcp['radmac_regdetails'] = $_POST['radmac_regdetails'] ? true : false;
 		$newcp['radmac_dbserver'] = $_POST['radmac_dbserver'];
 		$newcp['radmac_dbport'] = $_POST['radmac_dbport'];
 		$newcp['radmac_dbname'] = $_POST['radmac_dbname'];
@@ -1088,6 +1094,13 @@ $section->addInput(new Form_Input(
 	'text',
 	$pconfig['radmac_group']
 ))->AddClass('Autoregistration');
+
+$section->addInput(new Form_Checkbox(
+	'radmac_regdetails',
+	'Extra details for RADIUS MAC Users',
+	'Record more information about auto-added RADIUS MAC users',
+	$pconfig['radmac_regdetails']
+))->setHelp('If this option is enabled, the captive portal will record name, family name, nationality and email address in the userdetails table of the database.');
 
 $section->addInput(new Form_Select(
 	'radiussrcip_attribute',

@@ -2031,7 +2031,7 @@ function portal_reply_page($redirurl, $type = null, $message = null, $clientmac 
 	echo $htmltext;
 }
 
-function portal_mac_radius($clientmac, $clientip) {
+function portal_mac_radius($clientmac, $clientip, $radiusctx = null, $userdetails = null) {
 	global $config, $cpzone;
 
 	$radmac_secret = $config['captiveportal'][$cpzone]['radmac_secret'];
@@ -2040,13 +2040,13 @@ function portal_mac_radius($clientmac, $clientip) {
 	$username = mac_format($clientmac);
 
 	if (isset($config['captiveportal'][$cpzone]['radmac_autoregister'])) {
-		$register = radmac_register_user($username, $radmac_secret);
+		$register = radmac_register_user($username, $radmac_secret, $userdetails);
 		if (!$register) {
 			return FALSE;
 		}
 	}
 
-	$auth_list = radius($username, $radmac_secret, $clientip, $clientmac, "MACHINE LOGIN");
+	$auth_list = radius($username, $radmac_secret, $clientip, $clientmac, "MACHINE LOGIN", $radiusctx);
 	if ($auth_list['auth_val'] == 2) {
 		return TRUE;
 	}
@@ -2537,7 +2537,7 @@ function captiveportal_isip_logged($clientip) {
 	}
 }
 
-function radmac_register_user($username, $password) {
+function radmac_register_user($username, $password, $userdetails = null) {
 	global $g, $config, $cpzone;
 
 	$dbservername = $config['captiveportal'][$cpzone]['radmac_dbserver'];
@@ -2569,11 +2569,25 @@ function radmac_register_user($username, $password) {
 		return FALSE;
 	}
 
+	if ($userdetails) {
+		$firstname = $conn->real_escape_string($userdetails['firstname']);
+		$familyname = $conn->real_escape_string($userdetails['familyname']);
+		$emailaddress = $conn->real_escape_string($userdetails['emailaddress']);
+		$nationality = $conn->real_escape_string($userdetails['nationality']);
+
+		$sqlinsertdet = "INSERT INTO userdetails(username, firstname, familyname, emailaddress, nationality) VALUES ('{$username}', '{$firstname}', '{$familyname}', '{$emailaddress}', '{$nationality}');";
+	}
+
 	$result = $conn->query($sqlcheck);
 
 	if ($result === FALSE) {
 		captiveportal_syslog("Could not check the existence of user {$username}. Error message: " . $conn->error);
 	} else {
+		if ($sqlinsertdet) {
+			if ($conn->query($sqlinsertdet) === FALSE) {
+				captiveportal_syslog("Could not record the user details {$firstname}, {$familyname}, {$address}, {$nationality} for user {$username}. Error message: " . $conn->error);
+			}
+		}
 		if ($result->num_rows > 0) {
 			/*captiveportal_syslog("Username {$username} already registered.");*/
 			$conn->close();
