@@ -2569,24 +2569,22 @@ function radmac_register_user($username, $password, $userdetails = null) {
 		return FALSE;
 	}
 
-	if ($userdetails) {
-		$firstname = $conn->real_escape_string($userdetails['firstname']);
-		$familyname = $conn->real_escape_string($userdetails['familyname']);
-		$emailaddress = $conn->real_escape_string($userdetails['emailaddress']);
-		$nationality = $conn->real_escape_string($userdetails['nationality']);
-
-		$sqlinsertdet = "INSERT INTO userdetails(username, firstname, familyname, emailaddress, nationality) VALUES ('{$username}', '{$firstname}', '{$familyname}', '{$emailaddress}', '{$nationality}');";
-	}
-
 	$result = $conn->query($sqlcheck);
 
 	if ($result === FALSE) {
 		captiveportal_syslog("Could not check the existence of user {$username}. Error message: " . $conn->error);
 	} else {
-		if ($sqlinsertdet) {
-			if ($conn->query($sqlinsertdet) === FALSE) {
-				captiveportal_syslog("Could not record the user details {$firstname}, {$familyname}, {$address}, {$nationality} for user {$username}. Error message: " . $conn->error);
+		if ($userdetails) {
+			if (!($sqlinsertdet = $conn->prepare("INSERT INTO userdetails(username, firstname, familyname, emailaddress, nationality) VALUES (?, ?, ?, ?, ?)"))) {
+				captiveportal_syslog("Could not record the user details {$firstname}, {$familyname}, {$address}, {$nationality} for user {$username} during prepare. Error message: " . $conn->error);
 			}
+			if (!($sqlinsertdet->bind_param("sssss", $username, $userdetails['firstname'], $userdetails['familyname'], $userdetails['emailaddress'], $userdetails['nationality']))) {
+				captiveportal_syslog("Could not record the user details {$firstname}, {$familyname}, {$address}, {$nationality} for user {$username} during bind. Error message: " . $sqlinsertdet->error);
+			}
+			if (!($sqlinsertdet->execute())) {
+				captiveportal_syslog("Could not record the user details {$firstname}, {$familyname}, {$address}, {$nationality} for user {$username} during execute. Error message: " . $sqlinsertdet->error);
+			}
+			$sqlinsertdet->close();
 		}
 		if ($result->num_rows > 0) {
 			/*captiveportal_syslog("Username {$username} already registered.");*/
