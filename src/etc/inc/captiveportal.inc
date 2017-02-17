@@ -2575,14 +2575,14 @@ function radmac_register_user($username, $password, $userdetails = null) {
 		captiveportal_syslog("Could not check the existence of user {$username}. Error message: " . $conn->error);
 	} else {
 		if ($userdetails) {
-			if (!($sqlinsertdet = $conn->prepare("INSERT INTO userdetails(username, firstname, familyname, emailaddress, nationality) VALUES (?, ?, ?, ?, ?)"))) {
-				captiveportal_syslog("Could not record the user details {$firstname}, {$familyname}, {$address}, {$nationality} for user {$username} during prepare. Error message: " . $conn->error);
+			if (!($sqlinsertdet = $conn->prepare("INSERT INTO userdetails(username, name, country, state, emailaddress) VALUES (?, ?, ?, ?, ?)"))) {
+				captiveportal_syslog("Could not record the user details for user {$username} during prepare. Error message: " . $conn->error);
 			}
-			if (!($sqlinsertdet->bind_param("sssss", $username, $userdetails['firstname'], $userdetails['familyname'], $userdetails['emailaddress'], $userdetails['nationality']))) {
-				captiveportal_syslog("Could not record the user details {$firstname}, {$familyname}, {$address}, {$nationality} for user {$username} during bind. Error message: " . $sqlinsertdet->error);
+			if (!($sqlinsertdet->bind_param("sssss", $username, $userdetails['name'], $userdetails['country'], $userdetails['state'], $userdetails['emailaddress']))) {
+				captiveportal_syslog("Could not record the user details for user {$username} during bind. Error message: " . $sqlinsertdet->error);
 			}
 			if (!($sqlinsertdet->execute())) {
-				captiveportal_syslog("Could not record the user details {$firstname}, {$familyname}, {$address}, {$nationality} for user {$username} during execute. Error message: " . $sqlinsertdet->error);
+				captiveportal_syslog("Could not record the user details for user {$username} during execute. Error message: " . $sqlinsertdet->error);
 			}
 			$sqlinsertdet->close();
 		}

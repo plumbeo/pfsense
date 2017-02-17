@@ -196,10 +196,10 @@ EOD;
 } else if ($_POST['accept'] && $clientmac && $radmac_enable) {
 	if (isset($cpcfg['radmac_regdetails'])) {
 		if (isset($_POST['registerme'])) {
-			$userdetails['firstname'] = !empty($_POST['firstname']) ? filter_var(trim($_POST['firstname']), FILTER_SANITIZE_STRING, FILTER_FLAG_NO_ENCODE_QUOTES) : null;
-			$userdetails['familyname'] = !empty($_POST['familyname']) ? filter_var(trim($_POST['familyname']), FILTER_SANITIZE_STRING, FILTER_FLAG_NO_ENCODE_QUOTES) : null;
+			$userdetails['name'] = !empty($_POST['name']) ? filter_var(trim($_POST['name']), FILTER_SANITIZE_STRING, FILTER_FLAG_NO_ENCODE_QUOTES) : null;
+			$userdetails['country'] = !empty($_POST['country']) ? filter_var(trim($_POST['country']), FILTER_SANITIZE_STRING, FILTER_FLAG_NO_ENCODE_QUOTES) : null;
+			$userdetails['state'] = !empty($_POST['state']) ? filter_var(trim($_POST['state']), FILTER_SANITIZE_STRING, FILTER_FLAG_NO_ENCODE_QUOTES) : null;
 			$userdetails['emailaddress'] = !empty($_POST['emailaddress']) ? filter_var(trim($_POST['emailaddress']), FILTER_SANITIZE_EMAIL) : null;
-			$userdetails['nationality'] = !empty($_POST['nationality']) ? filter_var(trim($_POST['nationality']), FILTER_SANITIZE_STRING, FILTER_FLAG_NO_ENCODE_QUOTES) : null;
 		}
 	}
 	if (!portal_mac_radius($clientmac, $clientip, $radiusctx, $userdetails)) {
