@@ -5494,6 +5494,22 @@ function upgrade_172_to_173() {
 }
 
 /*
+ * Automatically enable retrieving captive portal bandwidth limits from RADIUS for each captive portal
+ * instance already enabled
+ */
+function upgrade_173_to_174() {
+	global $config;
+
+	if (is_array($config['captiveportal'])) {
+		foreach ($config['captiveportal'] as $cpzone => $cpcfg) {
+			if ($cpcfg['auth_method'] == "radius") {
+				$config['captiveportal'][$cpzone]['radiusperuserbw'] = true;
+			}
+		}
+	}
+}
+
+/*
  * Special function that is called independent of current config version. It's
  * a workaround to have config_upgrade running on older versions after next
  * config version was already taken by newer pfSense.
