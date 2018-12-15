@@ -220,7 +220,7 @@ if (!empty($cpzone)): ?>
 <?php
 	endif;
 ?>
-					<th><?=gettext("Username")?></th>
+					<th data-sortable-type="alpha"><?=gettext("Username")?></th>
 <?php
 	 // if multiple auth method are selected
 	if (mutiple_auth_server_type()): 
