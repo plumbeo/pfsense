@@ -2113,7 +2113,7 @@ function system_reboot_sync($reroot=false) {
 }
 
 function system_reboot_cleanup() {
-	global $config, $cpzone, $cpzoneid;
+	global $config, $g, $cpzone, $cpzoneid;
 
 	mwexec("/usr/local/bin/beep.sh stop");
 	require_once("captiveportal.inc");
@@ -2124,7 +2124,11 @@ function system_reboot_cleanup() {
 			captiveportal_radius_stop_all(7); // Admin-Reboot
 			/* Send Accounting-Off packet to the RADIUS server */
 			captiveportal_send_server_accounting('off');
+			/* Remove the user database */
+			unlink_if_exists("{$g['vardb_path']}/captiveportal{$cpzone}.db");
 		}
+		/* Remove the pipe database */
+		unlink_if_exists("{$g['vardb_path']}/captiveportaldn.rules");
 	}
 	require_once("voucher.inc");
 	voucher_save_db_to_config();
