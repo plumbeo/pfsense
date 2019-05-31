@@ -45,7 +45,6 @@ $checkbox_names = array(
 	'synchronizedhcpd',
 	'synchronizewol',
 	'synchronizestaticroutes',
-	'synchronizelb',
 	'synchronizevirtualip',
 	'synchronizetrafficshaper',
 	'synchronizetrafficshaperlimiter',
@@ -243,7 +242,7 @@ $group->add(new Form_MultiCheckbox(
 $group->add(new Form_MultiCheckbox(
 	'synchronizeopenvpn',
 	'Synchronize OpenVPN',
-	'OpenVPN configuration ',
+	'OpenVPN configuration (Implies CA/Cert/CRL Sync) ',
 	($pconfig['synchronizeopenvpn'] === 'on'),
 	'on'
 ));
@@ -269,14 +268,6 @@ $group->add(new Form_MultiCheckbox(
 	'Synchronize Static Routes',
 	'Static Route configuration ',
 	($pconfig['synchronizestaticroutes'] === 'on'),
-	'on'
-));
-
-$group->add(new Form_MultiCheckbox(
-	'synchronizelb',
-	'Synchronize Load Balancer',
-	'Load Balancer configuration ',
-	($pconfig['synchronizelb'] === 'on'),
 	'on'
 ));
 

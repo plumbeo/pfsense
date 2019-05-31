@@ -225,8 +225,12 @@ if ($_POST) {
 					header("Pragma: private");
 					header("Cache-Control: private, must-revalidate");
 				}
-				echo $data;
 
+				while (ob_get_level()) {
+					@ob_end_clean();
+				}
+				echo $data;
+				@ob_end_flush();
 				exit;
 			}
 		}
@@ -328,7 +332,8 @@ if ($_POST) {
 
 								if (file_exists("/boot/loader.conf")) {
 									$loaderconf = file_get_contents("/boot/loader.conf");
-									if (strpos($loaderconf, "console=\"comconsole")) {
+									if (strpos($loaderconf, "console=\"comconsole") ||
+									    strpos($loaderconf, "boot_serial=\"YES")) {
 										$config['system']['enableserial'] = true;
 										write_config(gettext("Restore serial console enabling in configuration."));
 									}
@@ -336,7 +341,8 @@ if ($_POST) {
 								}
 								if (file_exists("/boot/loader.conf.local")) {
 									$loaderconf = file_get_contents("/boot/loader.conf.local");
-									if (strpos($loaderconf, "console=\"comconsole")) {
+									if (strpos($loaderconf, "console=\"comconsole") ||
+									    strpos($loaderconf, "boot_serial=\"YES")) {
 										$config['system']['enableserial'] = true;
 										write_config(gettext("Restore serial console enabling in configuration."));
 									}
@@ -412,7 +418,7 @@ if ($_POST) {
 										}
 									}
 								}
-								setup_serial_port();
+								console_configure();
 								if (is_interface_mismatch() == true) {
 									touch("/var/run/interface_mismatch_reboot_needed");
 									clear_subsystem_dirty("restore");

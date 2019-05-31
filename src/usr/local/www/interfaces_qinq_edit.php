@@ -219,6 +219,7 @@ if ($_POST['save']) {
 				$gentry['ifname'] = "QinQ";
 				$gentry['members'] = "{$additions}";
 				$gentry['descr'] = gettext("QinQ VLANs group");
+				init_config_arr(array('ifgroups', 'ifgroupentry'));
 				$config['ifgroups']['ifgroupentry'][] = $gentry;
 			}
 		}
@@ -240,9 +241,7 @@ function build_parent_list() {
 	$list = array();
 
 	foreach ($portlist as $ifn => $ifinfo) {
-		if (is_jumbo_capable($ifn)) {
-			$list[$ifn] = $ifn . ' (' . $ifinfo['mac'] . ')';
-		}
+		$list[$ifn] = $ifn . ' (' . $ifinfo['mac'] . ')';
 	}
 
 	return($list);
@@ -294,7 +293,7 @@ $section->addInput(new Form_StaticText(
 ));
 
 if (isset($id) && $a_qinqs[$id]) {
-	$section->addInput(new Form_Input(
+	$form->addGlobal(new Form_Input(
 		'id',
 		null,
 		'hidden',

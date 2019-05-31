@@ -83,9 +83,14 @@ if ($_POST['save']) {
 			$address .= " ";
 		}
 
-		$address .= $_POST["address{$x}"];
-		$address .= "/" . $_POST["address_subnet{$x}"];
-		$isfirst++;
+		$this_addr =  $_POST["address{$x}"] . "/" . $_POST["address_subnet{$x}"];
+		if (is_subnet($this_addr)) {
+			$address .= $this_addr;
+			$isfirst++;
+		} else {
+			$input_errors[] = sprintf(gettext("The following submitted address is invalid: %s"), $this_addr);
+		}
+
 		$x++;
 	}
 
@@ -179,7 +184,7 @@ $section->addInput(new Form_Input(
 			'This setting is optional, and by default the threshold is 1.');
 
 if (isset($id) && $a_igmpproxy[$id]) {
-		$section->addInput(new Form_Input(
+		$form->addGlobal(new Form_Input(
 		'id',
 		null,
 		'hidden',

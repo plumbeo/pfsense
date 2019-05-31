@@ -30,6 +30,7 @@
 
 function cmp_page_matches($page, & $matches, $fullwc = true) {
 
+	global $g;
 //	$dbg_matches = implode(",", $matches);
 //	log_error("debug: checking page {$page} match with {$dbg_matches}");
 
@@ -37,11 +38,24 @@ function cmp_page_matches($page, & $matches, $fullwc = true) {
 		return false;
 	}
 
-	/* skip any leading fwdslash */
-	$test = strpos($page, "/");
-	if ($test !== false && $test == 0) {
-		$page = substr($page, 1);
+	list($file, $query) = explode('?', $page);
+	$file = realpath( $g['www_path'] . '/' . ltrim($file, '/'));
+	if (empty($file)) {
+		/* File does not exist, or other path shenanigans */
+
+		/* Some tabs are just JS anchors, detect this case. */
+		if ((substr($page, 0, 1) == "#") &&
+		    (strpos($page, '.') === false) &&
+		    (strpos($page, '/') === false) &&
+		    (strpos($page, '?') === false)) {
+			return true;
+		}
+
+		/* Tried to query a path that does not exist */
+		return false;
 	}
+	$page = str_replace($g['www_path'] . '/', '', $file);
+	$page .= (!empty($query)) ? "?{$query}" : "";
 
 	/* look for a match */
 	foreach ($matches as $match) {
